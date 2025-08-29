@@ -1,0 +1,76 @@
+# Multi-stage build for Production Airplane Tracker with Nginx
+FROM node:18-alpine AS base
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY client/package*.json ./client/
+
+# Install dependencies
+RUN npm ci --only=production && \
+    cd client && npm ci --only=production && cd ..
+
+# Build stage for React frontend
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app
+
+# Copy client source
+COPY client/ ./client/
+COPY --from=base /app/client/node_modules ./client/node_modules
+
+# Build React app
+RUN cd client && npm run build
+
+# Production stage with Nginx
+FROM nginx:alpine AS production
+
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create app user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files and install production dependencies
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built frontend to nginx html directory
+COPY --from=frontend-builder /app/client/build /usr/share/nginx/html
+
+# Copy server source code
+COPY server/ ./server/
+
+# Copy environment file template
+COPY env.example .env.example
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Create data directory for SQLite database
+RUN mkdir -p data && chown -R nodejs:nodejs data
+
+# Create nginx directories
+RUN mkdir -p /var/log/nginx /var/cache/nginx /var/run
+
+# Switch to non-root user for app
+USER nodejs
+
+# Expose ports
+EXPOSE 3001 80 443
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3001/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start both nginx and the Node.js app
+CMD ["sh", "-c", "nginx && npm start"]
