@@ -1,5 +1,8 @@
 # ✈️ Airplane Tracker
 
+
+**Checkout the tracker at - https://tinyurl.com/airplanetracker**
+
 A real-time airplane tracking application that shows aircraft currently flying in your vicinity. The app provides detailed information about nearby aircraft including direction, altitude, speed, and destination.
 
 ## 🌟 Features
