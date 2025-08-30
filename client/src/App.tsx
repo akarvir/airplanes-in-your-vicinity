@@ -169,7 +169,7 @@ const App: React.FC = () => {
   const handleRadiusChange = (newRadius: number) => {
     setSearchRadius(newRadius);
     if (userLocation) {
-      fetchAircraftData(userLocation.latitude, userLocation.longitude);
+      fetchAircraftData(userLocation.latitude, userLocation.longitude); // for that moment, and the useffect handles it after that
     }
   };
 
